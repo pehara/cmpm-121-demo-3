@@ -5,10 +5,10 @@ import leaflet from "leaflet";
 import luck from "./luck";
 import "./leafletWorkaround";
 
-// Define constants for game parameters
-const MERRILL_CLASSROOM = leaflet.latLng({
-    lat: 36.9995,
-    lng: -122.0533
+// Define Null Island as the reference point for part b(0°N 0°E)
+const NULL_ISLAND = leaflet.latLng({
+    lat: 0,
+    lng: 0
 });
 
 const GAMEPLAY_ZOOM_LEVEL = 19;
@@ -22,7 +22,7 @@ const mapContainer = document.querySelector<HTMLElement>("#map")!;
 
 // Create a Leaflet map instance
 const map = leaflet.map(mapContainer, {
-    center: MERRILL_CLASSROOM,
+    center: NULL_ISLAND,
     zoom: GAMEPLAY_ZOOM_LEVEL,
     minZoom: GAMEPLAY_ZOOM_LEVEL,
     maxZoom: GAMEPLAY_ZOOM_LEVEL,
@@ -37,7 +37,7 @@ leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 // Create a player marker on the map with a tooltip
-const playerMarker = leaflet.marker(MERRILL_CLASSROOM);
+const playerMarker = leaflet.marker(NULL_ISLAND);
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
@@ -46,11 +46,14 @@ let points = 0;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No points yet...";
 
+// Generate the game world with caches during program startup
+generateWorld();
+
 // Function to create a cache with popup at given coordinates
 function makeCache(i: number, j: number) {
     const cacheLatLng = leaflet.latLng({
-        lat: MERRILL_CLASSROOM.lat + i * TILE_DEGREES,
-        lng: MERRILL_CLASSROOM.lng + j * TILE_DEGREES,
+        lat: NULL_ISLAND.lat + i * TILE_DEGREES,
+        lng: NULL_ISLAND.lng + j * TILE_DEGREES,
     });
 
     const cache = leaflet.marker(cacheLatLng);
@@ -58,11 +61,17 @@ function makeCache(i: number, j: number) {
     // Initial number of coins in the cache
     let coinsToCollect = Math.floor(luck([i, j, "initialCoins"].toString()) * MAX_COINS_PER_CACHE);
 
+    // Coin serial counter for each cache
+    let coinSerial = 0;
+
     // Bind a popup to the cache with interactive content
     cache.bindPopup(() => {
         const container = document.createElement("div");
+        const compactRepresentation = `${i}:${j}#${coinSerial}`;
+
         container.innerHTML = `
             <div>This is a cache at "${i},${j}". It has ${coinsToCollect} coins available.</div>
+            <div>Coin Identity: ${compactRepresentation}</div>
             <button id="collect">Collect Coins</button>
             <button id="deposit">Deposit Coins</button>`;
         const collectButton = container.querySelector<HTMLButtonElement>("#collect")!;
@@ -83,7 +92,9 @@ function makeCache(i: number, j: number) {
                 points -= depositedCoins;
                 statusPanel.innerHTML = `${points} points accumulated`;
                 coinsToCollect += depositedCoins; // Update the number of coins in the cache
+                coinSerial++;
                 container.querySelector("div")!.innerHTML = `This is a cache at "${i},${j}". It has ${coinsToCollect} coins available.`;
+                container.querySelector("div:last-child")!.innerHTML = `Coin Identity: ${i}:${j}#${coinSerial}`;
             } else {
                 alert("Not enough points to deposit!");
             }
@@ -98,22 +109,17 @@ function makeCache(i: number, j: number) {
 
 // Function to generate the game world with caches
 function generateWorld() {
-    const playerLocation = {
-        lat: MERRILL_CLASSROOM.lat,
-        lng: MERRILL_CLASSROOM.lng,
-    };
-
     for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
         for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
             const cacheLocation = {
-                lat: MERRILL_CLASSROOM.lat + i * TILE_DEGREES,
-                lng: MERRILL_CLASSROOM.lng + j * TILE_DEGREES,
+                lat: NULL_ISLAND.lat + i * TILE_DEGREES,
+                lng: NULL_ISLAND.lng + j * TILE_DEGREES,
             };
 
             // Calculate distance between player and cache locations
             const distance = Math.sqrt(
-                Math.pow(playerLocation.lat - cacheLocation.lat, 2) +
-                Math.pow(playerLocation.lng - cacheLocation.lng, 2)
+                Math.pow(playerMarker.getLatLng().lat - cacheLocation.lat, 2) +
+                Math.pow(playerMarker.getLatLng().lng - cacheLocation.lng, 2)
             );
 
             // Check if the distance is within 8 cell-steps and spawn a cache with probability
@@ -123,6 +129,3 @@ function generateWorld() {
         }
     }
 }
-
-// Initial generation of the world
-generateWorld();
