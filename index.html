@@ -3,10 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title></title>
+    <link rel="stylesheet" href="leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="./style.css" />
+    <title>Geocoin Carrier</title>
   </head>
   <body>
     <div id="app">
+      <div id="title">
+        <h1>Geocoin Carrier</h1>
+      </div>
+
       <div id="controlPanel">
         <button id="sensor" title="sensor">🌐</button>
         <button id="north" title="north">⬆️</button>
@@ -15,9 +21,28 @@
         <button id="east" title="east">➡️</button>
         <button id="reset" title="reset">🚮</button>
       </div>
-      <div id="statusPanel"></div>
+
       <div id="map"></div>
+
+      <!-- <div id="cacheDetailPanel">
+        Placeholder for cache detail panel content
+        <h2>Cache Details</h2>
+        <p>Select a cache to view details.</p>
+      </div> -->
+
+      <div id="inventory">
+        <!-- Placeholder for inventory content -->
+        <h2>Inventory</h2>
+        <p>Your collected coins will be displayed here.</p>
+      </div>
+
+      <div id="statusPanel"></div>
     </div>
+
     <script type="module" src="/src/main.ts"></script>
+    <script src="leaflet/dist/leaflet.js"></script>
+    <script src="./luck.js"></script>
+    <script src="./leafletWorkaround.js"></script>
+    <script src="./yourscript.js"></script>
   </body>
 </html>

@@ -17,7 +17,7 @@
     "eslint": "^8.50.0",
     "pre-commit": "^1.2.2",
     "typescript": "^5.2.2",
-    "vite": "^4.4.5"
+    "vite": "^4.5.1"
   },
   "eslintConfig": {
     "root": true,
