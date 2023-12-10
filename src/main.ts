@@ -41,13 +41,28 @@ const playerMarker = leaflet.marker(NULL_ISLAND);
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
+// Center the map on the player's initial position
+map.setView(playerMarker.getLatLng(), GAMEPLAY_ZOOM_LEVEL);
+
 // Initialize points and status panel
 let points = 0;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No points yet...";
 
+// Cache state Memento
+interface CacheState {
+    i: number;
+    j: number;
+    coinsToCollect: number;
+    coinSerial: number;
+}
+
+// Array to store cache states
+let cacheStates: CacheState[] = [];
+
 // Generate the game world with caches during program startup
 generateWorld();
+restoreCacheState();  // Call restoreCacheState after generating the world
 
 // Function to create a cache with popup at given coordinates
 function makeCache(i: number, j: number) {
@@ -83,6 +98,7 @@ function makeCache(i: number, j: number) {
             statusPanel.innerHTML = `${points} points accumulated`;
             cache.closePopup();
             map.removeLayer(cache);
+            updateCacheStates();
         });
 
         // Deposit coins into another cache (for demonstration purposes, depositing in the same cache)
@@ -95,6 +111,7 @@ function makeCache(i: number, j: number) {
                 coinSerial++;
                 container.querySelector("div")!.innerHTML = `This is a cache at "${i},${j}". It has ${coinsToCollect} coins available.`;
                 container.querySelector("div:last-child")!.innerHTML = `Coin Identity: ${i}:${j}#${coinSerial}`;
+                updateCacheStates();
             } else {
                 alert("Not enough points to deposit!");
             }
@@ -105,7 +122,88 @@ function makeCache(i: number, j: number) {
 
     // Add the cache to the map
     cache.addTo(map);
+    updateCacheStates();
 }
+
+// Function to update cache states array
+function updateCacheStates() {
+    cacheStates = [];
+    map.eachLayer((layer) => {
+        if (layer instanceof leaflet.Marker) {
+            const cacheLatLng = layer.getLatLng();
+            const i = Math.round((cacheLatLng.lat - NULL_ISLAND.lat) / TILE_DEGREES);
+            const j = Math.round((cacheLatLng.lng - NULL_ISLAND.lng) / TILE_DEGREES);
+
+            // Check if popup exists and has content
+            const popup = layer.getPopup();
+            if (popup) {
+                const popupContent = popup.getContent();
+                if (popupContent && typeof popupContent === "string") {
+                    const coinsToCollectMatch = popupContent.match(/It has (\d+) coins available\./);
+                    const coinSerialMatch = popupContent.match(/Coin Identity: \d+:\d+#(\d+)/);
+
+                    // Check if matches are successful
+                    if (coinsToCollectMatch && coinSerialMatch) {
+                        const coinsToCollect = parseInt(coinsToCollectMatch[1], 10);
+                        const coinSerial = parseInt(coinSerialMatch[1], 10);
+
+                        cacheStates.push({
+                            i,
+                            j,
+                            coinsToCollect,
+                            coinSerial
+                        });
+                    }
+                }
+            }
+        }
+    });
+}
+
+function restoreCacheState() {
+    // // Clear existing caches
+    // map.eachLayer((layer) => {
+    //     if (layer instanceof leaflet.Marker) {
+    //         map.removeLayer(layer);
+    //     }
+    // });
+
+    // Restore caches from saved state with a delay
+    setTimeout(() => {
+        cacheStates.forEach((cacheState) => {
+            const { i, j, coinsToCollect, coinSerial } = cacheState;
+            makeCache(i, j);
+
+            // Find the marker associated with the cacheState
+            map.eachLayer((layer) => {
+                if (layer instanceof leaflet.Marker) {
+                    const cacheLatLng = layer.getLatLng();
+                    const currentI = Math.round((cacheLatLng.lat - NULL_ISLAND.lat) / TILE_DEGREES);
+                    const currentJ = Math.round((cacheLatLng.lng - NULL_ISLAND.lng) / TILE_DEGREES);
+
+                    if (currentI === i && currentJ === j) {
+                        // Ensure popup and content are present before updating
+                        const popup = layer.getPopup();
+                        if (popup) {
+                            const popupContent = popup.getContent();
+                            if (popupContent) {
+                                const updatedContent =
+                                    `<div>This is a cache at "${i},${j}". It has ${coinsToCollect} coins available.</div>` +
+                                    `<div>Coin Identity: ${i}:${j}#${coinSerial}</div>` +
+                                    `<button id="collect">Collect Coins</button>` +
+                                    `<button id="deposit">Deposit Coins</button>`;
+
+                                // Update the popup content
+                                popup.setContent(updatedContent);
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    }, 1000); // Adjust the delay as needed
+}
+
 
 // Function to generate the game world with caches
 function generateWorld() {
@@ -129,3 +227,65 @@ function generateWorld() {
         }
     }
 }
+
+// Function to handle player movement
+function movePlayer(direction: string) {
+    const stepSize = TILE_DEGREES;
+
+    switch (direction) {
+        case "north":
+            playerMarker.setLatLng({
+                lat: playerMarker.getLatLng().lat + stepSize,
+                lng: playerMarker.getLatLng().lng
+            });
+            break;
+        case "south":
+            playerMarker.setLatLng({
+                lat: playerMarker.getLatLng().lat - stepSize,
+                lng: playerMarker.getLatLng().lng
+            });
+            break;
+        case "east":
+            playerMarker.setLatLng({
+                lat: playerMarker.getLatLng().lat,
+                lng: playerMarker.getLatLng().lng + stepSize
+            });
+            break;
+        case "west":
+            playerMarker.setLatLng({
+                lat: playerMarker.getLatLng().lat,
+                lng: playerMarker.getLatLng().lng - stepSize
+            });
+            break;
+        default:
+            break;
+    }
+
+    // Remove existing caches from the map
+    map.eachLayer((layer) => {
+        if (layer instanceof leaflet.Marker && layer !== playerMarker) {
+            map.removeLayer(layer);
+        }
+    });
+
+    // Create a new player marker instance
+    const newPlayerMarker = leaflet.marker(playerMarker.getLatLng());
+    newPlayerMarker.bindTooltip("That's you!");
+    newPlayerMarker.addTo(map);
+
+    // Update the player marker reference
+    playerMarker.setLatLng(newPlayerMarker.getLatLng());
+
+    // Generate new caches around the player's new position
+    setTimeout(() => {
+        generateWorld();
+        updateCacheStates();
+    }, 0);
+}
+
+// Add event listeners for player movement and cache restoration
+document.getElementById("moveNorth")?.addEventListener("click", () => movePlayer("north"));
+document.getElementById("moveSouth")?.addEventListener("click", () => movePlayer("south"));
+document.getElementById("moveEast")?.addEventListener("click", () => movePlayer("east"));
+document.getElementById("moveWest")?.addEventListener("click", () => movePlayer("west"));
+document.getElementById("restoreCaches")?.addEventListener("click", () => restoreCacheState());
